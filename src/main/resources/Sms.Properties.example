@@ -1,0 +1,32 @@
+# =====================================================================
+# Sparrow SMS credentials — example / template.
+#
+# HOW TO USE:
+#   1. Copy this file to `sms.properties` (same folder, no ".example")
+#   2. Replace the placeholder values with the token + sender identity
+#      you got from https://sparrowsms.com
+#   3. Rebuild the project (Build → Build Project) so the new file
+#      lands in target/classes
+#
+# HOW TO GET CREDENTIALS:
+#   1. Sign up at https://sparrowsms.com
+#   2. Purchase SMS credits (a bulk package or pay-as-you-go)
+#   3. From your dashboard, copy the API token
+#   4. Sparrow will email you the "sender identity" they've registered
+#      for your account (during trial this is usually the string "Demo")
+#
+# SECURITY:
+#   - `sms.properties` is git-ignored — it will NEVER be committed.
+#   - This `.example` file is safe to commit; it contains no secrets.
+#   - For production hospital deployment, prefer environment variables:
+#         SPARROW_SMS_TOKEN=xxxx
+#         SPARROW_SMS_FROM=MyClinic
+#
+# FALLBACK BEHAVIOR:
+#   If this file is missing OR the token is blank, the app automatically
+#   falls back to the console SMS simulator — no error, no crash.
+#   You'll see a "SMS mode: CONSOLE" banner at startup so it's obvious.
+# =====================================================================
+
+sparrow.token=YOUR_SPARROW_API_TOKEN_HERE
+sparrow.from=Demo

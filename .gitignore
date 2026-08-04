@@ -1,0 +1,22 @@
+# --- Maven ---
+target/
+
+# --- IntelliJ ---
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# --- OS junk ---
+.DS_Store
+Thumbs.db
+
+# --- SECRETS — never commit real credentials ---
+# The real Sparrow SMS creds live in src/main/resources/sms.properties.
+# Only the template (`sms.properties.example`) is committed.
+src/main/resources/sms.properties
+
+# --- Optional: user's local db.properties override ---
+# If your team ever shares credentials via env vars instead of the file,
+# uncomment the next line so nobody's local password ends up in git.
+# src/main/resources/db.properties
