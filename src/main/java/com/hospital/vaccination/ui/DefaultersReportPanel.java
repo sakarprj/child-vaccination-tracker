@@ -2,11 +2,13 @@ package com.hospital.vaccination.ui;
 
 import com.hospital.vaccination.dao.DefaultersDAO;
 import com.hospital.vaccination.dao.DefaultersDAO.DefaulterRow;
+import com.hospital.vaccination.service.AuthService;
 import com.hospital.vaccination.ui.components.EmptyState;
 import com.hospital.vaccination.ui.components.PageHeader;
 import com.hospital.vaccination.ui.components.PremiumTable;
 import com.hospital.vaccination.ui.components.RoundedButton;
 import com.hospital.vaccination.ui.components.RoundedButton.Style;
+import com.hospital.vaccination.ui.components.RoundedTextField;
 import com.hospital.vaccination.ui.components.StatCard;
 import com.hospital.vaccination.util.BSDateConverter;
 import com.hospital.vaccination.util.DateUtil;
@@ -14,6 +16,8 @@ import com.hospital.vaccination.util.Icons;
 import com.hospital.vaccination.util.UI;
 
 import javax.swing.*;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.AbstractTableModel;
 import java.awt.*;
@@ -23,40 +27,59 @@ import java.io.PrintWriter;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
+/** Shared staff report for children with missed vaccination doses. */
 public class DefaultersReportPanel extends JPanel {
 
     private final DefaultersDAO dao = new DefaultersDAO();
     private final DefaulterTableModel model = new DefaulterTableModel();
     private final PremiumTable table = new PremiumTable(model);
+    private final RoundedTextField searchField = new RoundedTextField(24);
 
-    private final StatCard cardDefaulters = new StatCard("Defaulting children", "0", Icons.TRIANGLE_WARN, UI.DANGER);
-    private final StatCard cardMissed     = new StatCard("Total missed doses",  "0", Icons.SYRINGE,       UI.WARN);
+    /** Full report data; the table model contains the current filtered view. */
+    private List<DefaulterRow> allRows = new ArrayList<>();
+
+    private final StatCard cardDefaulters = new StatCard(
+            "Defaulting children", "0", Icons.TRIANGLE_WARN, UI.DANGER);
+    private final StatCard cardMissed = new StatCard(
+            "Total missed doses", "0", Icons.SYRINGE, UI.WARN);
 
     private JPanel tableCard;
 
     public DefaultersReportPanel() {
         setLayout(new BorderLayout());
         setBackground(UI.BG_APP);
-        add(buildHeader(), BorderLayout.NORTH);
-        add(buildBody(),   BorderLayout.CENTER);
 
-        int[] w = { 170, 100, 160, 120, 200, 70, 220 };
-        for (int i = 0; i < w.length; i++)
-            table.getColumnModel().getColumn(i).setPreferredWidth(w[i]);
+        searchField.setPlaceholder("Search child, parent, phone, or vaccine…");
+
+        add(buildHeader(), BorderLayout.NORTH);
+        add(buildBody(), BorderLayout.CENTER);
+
+        int[] widths = {170, 100, 160, 120, 200, 70, 220};
+        for (int i = 0; i < widths.length; i++) {
+            table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
+        }
 
         refresh();
     }
 
     private PageHeader buildHeader() {
-        PageHeader h = new PageHeader("Defaulters Report",
-                "Children with one or more MISSED vaccinations - priority follow-ups.");
-        RoundedButton refresh = new RoundedButton("Refresh", Style.SECONDARY).withIcon(Icons.REFRESH);
+        PageHeader header = new PageHeader(
+                "Defaulters Report",
+                "Children with one or more MISSED vaccinations — priority follow-ups.");
+
+        RoundedButton refresh = new RoundedButton(
+                "Refresh", Style.SECONDARY).withIcon(Icons.REFRESH);
         refresh.addActionListener(e -> refresh());
-        RoundedButton export = new RoundedButton("Export CSV", Style.PRIMARY).withIcon(Icons.FILE_CSV);
+
+        RoundedButton export = new RoundedButton(
+                "Export CSV", Style.PRIMARY).withIcon(Icons.FILE_CSV);
         export.addActionListener(e -> onExportCsv());
-        h.addAction(refresh); h.addAction(export);
-        return h;
+
+        header.addAction(refresh);
+        header.addAction(export);
+        return header;
     }
 
     private JPanel buildBody() {
@@ -64,55 +87,147 @@ public class DefaultersReportPanel extends JPanel {
         body.setBackground(UI.BG_APP);
         body.setBorder(UI.padding(24, 32));
 
+        JPanel top = new JPanel(new BorderLayout(0, 16));
+        top.setOpaque(false);
+        top.add(buildSearchRow(), BorderLayout.NORTH);
+
         JPanel stats = new JPanel(new GridLayout(1, 2, 14, 0));
         stats.setOpaque(false);
-        stats.add(cardDefaulters); stats.add(cardMissed);
-        body.add(stats, BorderLayout.NORTH);
+        stats.add(cardDefaulters);
+        stats.add(cardMissed);
+        top.add(stats, BorderLayout.SOUTH);
+        body.add(top, BorderLayout.NORTH);
 
         tableCard = new JPanel(new BorderLayout());
         tableCard.setBackground(UI.CARD_BG);
         tableCard.setBorder(BorderFactory.createLineBorder(UI.BORDER, 1, true));
-        setTableView();
         body.add(tableCard, BorderLayout.CENTER);
+
         return body;
+    }
+
+    private JPanel buildSearchRow() {
+        JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        row.setOpaque(false);
+
+        JLabel icon = new JLabel(Icons.SEARCH);
+        icon.setFont(UI.icon(14f));
+        icon.setForeground(UI.TEXT_SECONDARY);
+        row.add(icon);
+
+        searchField.setPreferredSize(new Dimension(350, 36));
+        searchField.getDocument().addDocumentListener(new DocumentListener() {
+            @Override public void insertUpdate(DocumentEvent e) { applyFilter(); }
+            @Override public void removeUpdate(DocumentEvent e) { applyFilter(); }
+            @Override public void changedUpdate(DocumentEvent e) { applyFilter(); }
+        });
+        row.add(searchField);
+
+        return row;
     }
 
     private void setTableView() {
         tableCard.removeAll();
-        JScrollPane sp = new JScrollPane(table);
-        sp.setBorder(null);
-        sp.getViewport().setBackground(Color.WHITE);
-        tableCard.add(sp, BorderLayout.CENTER);
+        JScrollPane scroll = new JScrollPane(table);
+        scroll.setBorder(null);
+        scroll.getViewport().setBackground(Color.WHITE);
+        tableCard.add(scroll, BorderLayout.CENTER);
         tableCard.revalidate();
         tableCard.repaint();
     }
 
     private void setEmptyView() {
         tableCard.removeAll();
-        tableCard.add(new EmptyState(Icons.CIRCLE_CHECK,
-                        "No defaulters - every child is up to date",
+        tableCard.add(new EmptyState(
+                        Icons.CIRCLE_CHECK,
+                        "No defaulters — every child is up to date",
                         "Great work! There are no children with missed doses right now."),
                 BorderLayout.CENTER);
         tableCard.revalidate();
         tableCard.repaint();
     }
 
-    public void refreshExternally() { refresh(); }
+    private void setNoMatchView() {
+        tableCard.removeAll();
+        tableCard.add(new EmptyState(
+                        Icons.SEARCH,
+                        "No matching defaulters found",
+                        "Try a different child name, parent name, phone number, or vaccine."),
+                BorderLayout.CENTER);
+        tableCard.revalidate();
+        tableCard.repaint();
+    }
+
+    public void refreshExternally() {
+        refresh();
+    }
+
+    public void focusSearch() {
+        searchField.requestFocusInWindow();
+        searchField.selectAll();
+    }
 
     private void refresh() {
+        AuthService.touch();
         try {
-            List<DefaulterRow> rows = dao.findAll();
-            model.setRows(rows);
-            int totalMissed = rows.stream().mapToInt(DefaulterRow::missedCount).sum();
-            cardDefaulters.setValue(String.valueOf(rows.size()));
-            cardMissed    .setValue(String.valueOf(totalMissed));
-            if (rows.isEmpty()) setEmptyView(); else setTableView();
+            allRows = dao.findAll();
+            applyFilter();
         } catch (RuntimeException ex) {
             ex.printStackTrace();
-            JOptionPane.showMessageDialog(this,
-                    "Could not load report: " + ex.getMessage(),
-                    "Database error", JOptionPane.ERROR_MESSAGE);
+            showError("Could not load report: " + ex.getMessage());
         }
+    }
+
+    /** Live, client-side search over the loaded defaulters report. */
+    private void applyFilter() {
+        String query = searchField.getText().trim().toLowerCase(Locale.ROOT);
+
+        List<DefaulterRow> shown = allRows.stream()
+                .filter(row -> matches(row, query))
+                .toList();
+
+        model.setRows(shown);
+        updateStats(shown);
+
+        if (allRows.isEmpty()) {
+            setEmptyView();
+        } else if (shown.isEmpty()) {
+            setNoMatchView();
+        } else {
+            setTableView();
+        }
+    }
+
+    private boolean matches(DefaulterRow row, String query) {
+        if (query.isEmpty()) return true;
+        return contains(row.childName(), query)
+                || contains(row.parentName(), query)
+                || contains(row.parentPhone(), query)
+                || contains(row.missedVaccines(), query);
+    }
+
+    private boolean contains(String value, String query) {
+        return value != null && value.toLowerCase(Locale.ROOT).contains(query);
+    }
+
+    private void updateStats(List<DefaulterRow> rows) {
+        int totalMissed = rows.stream().mapToInt(DefaulterRow::missedCount).sum();
+        cardDefaulters.setValue(String.valueOf(rows.size()));
+        cardMissed.setValue(String.valueOf(totalMissed));
+
+        String suffix = rows.size() == 1 ? "child shown" : "children shown";
+        cardDefaulters.setSubtitle(rows.size() + " " + suffix);
+        cardMissed.setSubtitle("In current results");
+    }
+
+    private void showError(String message) {
+        tableCard.removeAll();
+        tableCard.add(new EmptyState(
+                Icons.TRIANGLE_WARN,
+                "Unable to load defaulters report",
+                message), BorderLayout.CENTER);
+        tableCard.revalidate();
+        tableCard.repaint();
     }
 
     private void onExportCsv() {
@@ -121,28 +236,32 @@ public class DefaultersReportPanel extends JPanel {
                     "Empty report", JOptionPane.INFORMATION_MESSAGE);
             return;
         }
+
         JFileChooser chooser = new JFileChooser();
         chooser.setDialogTitle("Export defaulters report");
         chooser.setSelectedFile(new File("defaulters_" + LocalDate.now() + ".csv"));
         chooser.setFileFilter(new FileNameExtensionFilter("CSV files", "csv"));
         if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return;
+
         File out = chooser.getSelectedFile();
         if (!out.getName().toLowerCase().endsWith(".csv")) {
             out = new File(out.getParentFile(), out.getName() + ".csv");
         }
+
         try (PrintWriter pw = new PrintWriter(new FileWriter(out))) {
             pw.println("Child Name,DOB (AD),DOB (BS),Parent,Phone,Address,Missed Count,Missed Vaccines");
-            for (DefaulterRow r : model.rows) {
+            for (DefaulterRow row : model.rows) {
                 pw.println(String.join(",",
-                        csv(r.childName()),
-                        csv(DateUtil.display(r.childDob())),
-                        csv(BSDateConverter.toBS(r.childDob()).format()),
-                        csv(r.parentName()),
-                        csv(r.parentPhone()),
-                        csv(r.address()),
-                        String.valueOf(r.missedCount()),
-                        csv(r.missedVaccines())));
+                        csv(row.childName()),
+                        csv(DateUtil.display(row.childDob())),
+                        csv(BSDateConverter.toBS(row.childDob()).format()),
+                        csv(row.parentName()),
+                        csv(row.parentPhone()),
+                        csv(row.address()),
+                        String.valueOf(row.missedCount()),
+                        csv(row.missedVaccines())));
             }
+
             JOptionPane.showMessageDialog(this,
                     "Exported " + model.rows.size() + " rows to:\n" + out.getAbsolutePath(),
                     "CSV saved", JOptionPane.INFORMATION_MESSAGE);
@@ -154,35 +273,47 @@ public class DefaultersReportPanel extends JPanel {
         }
     }
 
-    private String csv(String s) {
-        if (s == null) return "";
-        boolean q = s.contains(",") || s.contains("\"") || s.contains("\n");
-        String v = s.replace("\"", "\"\"");
-        return q ? "\"" + v + "\"" : v;
+    private String csv(String text) {
+        if (text == null) return "";
+        boolean quoted = text.contains(",") || text.contains("\"") || text.contains("\n");
+        String escaped = text.replace("\"", "\"\"");
+        return quoted ? "\"" + escaped + "\"" : escaped;
     }
 
     private static class DefaulterTableModel extends AbstractTableModel {
-        private final String[] COLS = {
+        private static final String[] COLUMNS = {
                 "Child name", "DOB", "Parent", "Phone", "Address", "Missed", "Missed vaccines"
         };
+
         List<DefaulterRow> rows = new ArrayList<>();
-        void setRows(List<DefaulterRow> rows) { this.rows = rows; fireTableDataChanged(); }
-        @Override public int getRowCount()           { return rows.size(); }
-        @Override public int getColumnCount()        { return COLS.length; }
-        @Override public String getColumnName(int c) { return COLS[c]; }
-        @Override public Object getValueAt(int r, int c) {
-            DefaulterRow d = rows.get(r);
-            return switch (c) {
-                case 0 -> d.childName();
-                case 1 -> DateUtil.display(d.childDob());
-                case 2 -> d.parentName();
-                case 3 -> d.parentPhone();
-                case 4 -> d.address() == null ? "" : d.address();
-                case 5 -> d.missedCount();
-                case 6 -> d.missedVaccines();
+
+        void setRows(List<DefaulterRow> rows) {
+            this.rows = rows;
+            fireTableDataChanged();
+        }
+
+        @Override public int getRowCount() { return rows.size(); }
+        @Override public int getColumnCount() { return COLUMNS.length; }
+        @Override public String getColumnName(int column) { return COLUMNS[column]; }
+
+        @Override
+        public Object getValueAt(int rowIndex, int columnIndex) {
+            DefaulterRow row = rows.get(rowIndex);
+            return switch (columnIndex) {
+                case 0 -> row.childName();
+                case 1 -> DateUtil.display(row.childDob());
+                case 2 -> row.parentName();
+                case 3 -> row.parentPhone();
+                case 4 -> row.address() == null ? "" : row.address();
+                case 5 -> row.missedCount();
+                case 6 -> row.missedVaccines();
                 default -> "";
             };
         }
-        @Override public Class<?> getColumnClass(int c) { return c == 5 ? Integer.class : String.class; }
+
+        @Override
+        public Class<?> getColumnClass(int columnIndex) {
+            return columnIndex == 5 ? Integer.class : String.class;
+        }
     }
 }
