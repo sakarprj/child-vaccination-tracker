@@ -5,12 +5,8 @@ import com.hospital.vaccination.dao.ChildDAO.ChildRow;
 import com.hospital.vaccination.dao.VaccinationRecordDAO;
 import com.hospital.vaccination.model.Child;
 import com.hospital.vaccination.model.VaccinationRecord;
-import com.hospital.vaccination.ui.components.PageHeader;
-import com.hospital.vaccination.ui.components.PremiumTable;
-import com.hospital.vaccination.ui.components.RoundedButton;
+import com.hospital.vaccination.ui.components.*;
 import com.hospital.vaccination.ui.components.RoundedButton.Style;
-import com.hospital.vaccination.ui.components.RoundedTextField;
-import com.hospital.vaccination.ui.components.StatCard;
 import com.hospital.vaccination.util.BSDateConverter;
 import com.hospital.vaccination.util.DateUtil;
 import com.hospital.vaccination.util.Icons;
@@ -26,6 +22,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
+/** Shared staff page: browse every registered child. */
 public class AllChildrenPanel extends JPanel {
 
     private final ChildDAO             childDAO   = new ChildDAO();
@@ -35,14 +32,14 @@ public class AllChildrenPanel extends JPanel {
     private final ChildrenTableModel model = new ChildrenTableModel();
     private final PremiumTable table = new PremiumTable(model);
 
-    private final StatCard cardTotal = new StatCard("Total children",  "0", Icons.CHILD,      UI.PRIMARY);
-    private final StatCard cardMonth = new StatCard("New this month",  "0", Icons.CHART_LINE, UI.SUCCESS);
-    private final StatCard cardShown = new StatCard("Currently shown", "0", Icons.EYE,        UI.WARN);
+    private final StatCard cardTotal = new StatCard("Total children",     "0", Icons.CHILD,       UI.PRIMARY);
+    private final StatCard cardMonth = new StatCard("New this month",     "0", Icons.CHART_LINE,  UI.SUCCESS);
+    private final StatCard cardShown = new StatCard("Currently shown",    "0", Icons.EYE,         UI.WARN);
 
     public AllChildrenPanel() {
         setLayout(new BorderLayout());
         setBackground(UI.BG_APP);
-        searchField.setPlaceholder("Search by name or phone...");
+        searchField.setPlaceholder("Search by name or phone…");
 
         add(buildHeader(), BorderLayout.NORTH);
         add(buildBody(),   BorderLayout.CENTER);
@@ -185,7 +182,7 @@ public class AllChildrenPanel extends JPanel {
         JScrollPane scroll = new JScrollPane(content);
         scroll.setPreferredSize(new Dimension(720, 500));
         JOptionPane.showMessageDialog(this, scroll,
-                "Vaccination history - " + c.getName(),
+                "Vaccination history — " + c.getName(),
                 JOptionPane.INFORMATION_MESSAGE);
     }
 
@@ -194,12 +191,14 @@ public class AllChildrenPanel extends JPanel {
         if (c == null) { JOptionPane.showMessageDialog(this, "Select a child first.", "No selection", JOptionPane.WARNING_MESSAGE); return; }
         List<VaccinationRecord> records = recordDAO.findByChild(c.getId());
         CardActionDialog.show(this, c, records,
-                "Vaccination card - " + c.getName(), null);
+                "Vaccination card — " + c.getName(), null);
     }
 
     private String escape(String s) {
         return s == null ? "" : s.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;");
     }
+
+    // ---- model --------------------------------------------------------------
 
     private static class ChildrenTableModel extends AbstractTableModel {
         private static final DateTimeFormatter TS = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");

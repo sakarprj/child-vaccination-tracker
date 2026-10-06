@@ -10,11 +10,20 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
 
+/**
+ * Nurse dashboard: sidebar-driven layout.
+ * <ul>
+ *   <li>Register new child</li>
+ *   <li>Today's checklist</li>
+ *   <li>All children</li>
+ * </ul>
+ */
 public class NurseDashboard extends JFrame {
 
     private Sidebar sidebar;
     private ChildRegistrationPanel registerPanel;
     private TodayChecklistPanel    checklistPanel;
+    private AllChildrenPanel       childrenPanel;
 
     public NurseDashboard() {
         super(AppConfig.windowTitle("Nurse Dashboard"));
@@ -33,10 +42,12 @@ public class NurseDashboard extends JFrame {
 
         registerPanel  = new ChildRegistrationPanel();
         checklistPanel = new TodayChecklistPanel();
+        childrenPanel  = new AllChildrenPanel();
 
         sidebar = new Sidebar(me, this::doLogout);
         sidebar.addNav("Register Child",    Icons.USER_PLUS, registerPanel);
         sidebar.addNav("Today's Checklist", Icons.CLIPBOARD, checklistPanel);
+        sidebar.addNav("All Children",      Icons.CHILD,     childrenPanel);
 
         JPanel root = new JPanel(new BorderLayout());
         root.setBackground(UI.BG_APP);
@@ -67,8 +78,14 @@ public class NurseDashboard extends JFrame {
                 () -> sidebar.selectByLabel("Register Child"));
         bind(root, KeyStroke.getKeyStroke(KeyEvent.VK_T, menu), "tab-checklist",
                 () -> sidebar.selectByLabel("Today's Checklist"));
-        bind(root, KeyStroke.getKeyStroke(KeyEvent.VK_F5, 0), "refresh",
-                () -> checklistPanel.refreshExternally());
+        bind(root, KeyStroke.getKeyStroke(KeyEvent.VK_F, menu), "search-children", () -> {
+            sidebar.selectByLabel("All Children");
+            childrenPanel.focusSearch();
+        });
+        bind(root, KeyStroke.getKeyStroke(KeyEvent.VK_F5, 0), "refresh", () -> {
+            checklistPanel.refreshExternally();
+            childrenPanel.refreshExternally();
+        });
     }
 
     private void bind(JRootPane root, KeyStroke ks, String name, Runnable r) {
