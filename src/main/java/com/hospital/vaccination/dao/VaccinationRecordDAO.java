@@ -161,6 +161,51 @@ public class VaccinationRecordDAO {
         }
     }
 
+    /**
+     * All future PENDING doses, starting tomorrow. Results are always ordered
+     * by nearest due date first so staff can plan the upcoming workload.
+     */
+    public List<ChecklistRow> findUpcomingChecklist(LocalDate today) {
+        String sql =
+                "SELECT vr.id, vr.child_id, vr.vaccine_name, vr.due_date, " +
+                        "       vr.status, vr.completed_date, vr.reminder_count, " +
+                        "       c.name AS child_name, c.date_of_birth AS dob, " +
+                        "       c.parent_phone " +
+                        "FROM vaccination_records vr " +
+                        "JOIN children c ON c.id = vr.child_id " +
+                        "WHERE vr.status = 'PENDING' " +
+                        "  AND vr.due_date > ? " +
+                        "ORDER BY vr.due_date ASC, c.name ASC, vr.id ASC";
+
+        List<ChecklistRow> out = new ArrayList<>();
+        try (Connection c = DBConnection.get();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setDate(1, Date.valueOf(today));
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Date completed = rs.getDate("completed_date");
+                    VaccinationRecord record = new VaccinationRecord(
+                            rs.getInt("id"),
+                            rs.getInt("child_id"),
+                            rs.getString("vaccine_name"),
+                            rs.getDate("due_date").toLocalDate(),
+                            VaccinationRecord.Status.valueOf(rs.getString("status")),
+                            completed == null ? null : completed.toLocalDate(),
+                            rs.getInt("reminder_count"));
+
+                    out.add(new ChecklistRow(
+                            record,
+                            rs.getString("child_name"),
+                            rs.getDate("dob").toLocalDate(),
+                            rs.getString("parent_phone")));
+                }
+            }
+            return out;
+        } catch (SQLException e) {
+            throw new RuntimeException("findUpcomingChecklist failed", e);
+        }
+    }
+
     public void markCompleted(int recordId, LocalDate when) {
         String sql = "UPDATE vaccination_records " +
                 "SET status = 'COMPLETED', completed_date = ? WHERE id = ?";

@@ -15,15 +15,17 @@ import java.awt.event.KeyEvent;
  * <ul>
  *   <li>Register new child</li>
  *   <li>Today's checklist</li>
+ *   <li>Upcoming checklist</li>
  *   <li>All children</li>
  * </ul>
  */
 public class NurseDashboard extends JFrame {
 
     private Sidebar sidebar;
-    private ChildRegistrationPanel registerPanel;
-    private TodayChecklistPanel    checklistPanel;
-    private AllChildrenPanel       childrenPanel;
+    private ChildRegistrationPanel  registerPanel;
+    private TodayChecklistPanel     checklistPanel;
+    private UpcomingChecklistPanel  upcomingPanel;
+    private AllChildrenPanel        childrenPanel;
 
     public NurseDashboard() {
         super(AppConfig.windowTitle("Nurse Dashboard"));
@@ -42,11 +44,13 @@ public class NurseDashboard extends JFrame {
 
         registerPanel  = new ChildRegistrationPanel();
         checklistPanel = new TodayChecklistPanel();
+        upcomingPanel  = new UpcomingChecklistPanel();
         childrenPanel  = new AllChildrenPanel();
 
         sidebar = new Sidebar(me, this::doLogout);
         sidebar.addNav("Register Child",    Icons.USER_PLUS, registerPanel);
         sidebar.addNav("Today's Checklist", Icons.CLIPBOARD, checklistPanel);
+        sidebar.addNav("Upcoming Checklist", Icons.CALENDAR, upcomingPanel);
         sidebar.addNav("All Children",      Icons.CHILD,     childrenPanel);
 
         JPanel root = new JPanel(new BorderLayout());
@@ -78,12 +82,15 @@ public class NurseDashboard extends JFrame {
                 () -> sidebar.selectByLabel("Register Child"));
         bind(root, KeyStroke.getKeyStroke(KeyEvent.VK_T, menu), "tab-checklist",
                 () -> sidebar.selectByLabel("Today's Checklist"));
+        bind(root, KeyStroke.getKeyStroke(KeyEvent.VK_U, menu), "tab-upcoming",
+                () -> sidebar.selectByLabel("Upcoming Checklist"));
         bind(root, KeyStroke.getKeyStroke(KeyEvent.VK_F, menu), "search-children", () -> {
             sidebar.selectByLabel("All Children");
             childrenPanel.focusSearch();
         });
         bind(root, KeyStroke.getKeyStroke(KeyEvent.VK_F5, 0), "refresh", () -> {
             checklistPanel.refreshExternally();
+            upcomingPanel.refreshExternally();
             childrenPanel.refreshExternally();
         });
     }
